@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  app1:
+    build: .
+    ports:
+      - "3000-3010:3000-3010"
+    volumes:
+      - ./db:/usr/src/app/db
