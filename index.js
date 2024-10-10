@@ -1,16 +1,17 @@
 import express from 'express';
-import {createServer} from 'node:http';
-import {fileURLToPath} from 'node:url';
-import {dirname, join} from 'node:path';
-import {Server} from 'socket.io';
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
 import sqlite3 from 'sqlite3';
-import {open} from 'sqlite';
-import {availableParallelism} from 'node:os';
+import { open } from 'sqlite';
 import cluster from 'node:cluster';
-import {createAdapter, setupPrimary} from '@socket.io/cluster-adapter';
+import { createAdapter, setupPrimary } from '@socket.io/cluster-adapter';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 if (cluster.isPrimary) {
-    // const numCPUs = availableParallelism();
     for (let i = 0; i < 2; i++) {
         cluster.fork({
             PORT: 3000 + i
@@ -39,8 +40,10 @@ if (cluster.isPrimary) {
         adapter: createAdapter()
     });
 
-    const __dirname = dirname(fileURLToPath(import.meta.url));
+    // Servir archivos estáticos desde el directorio actual
+    app.use(express.static(__dirname));
 
+    // Ruta para servir el archivo HTML
     app.get('/', (req, res) => {
         res.sendFile(join(__dirname, 'index.html'));
     });
@@ -54,12 +57,14 @@ if (cluster.isPrimary) {
                 if (e.errno === 19 /* SQLITE_CONSTRAINT */) {
                     callback();
                 } else {
-                    // nothing to do, just let the client retry
+                    callback('Error al guardar el mensaje');
                 }
                 return;
             }
             io.emit('chat message', msg, result.lastID);
-            callback();
+            if (typeof callback === 'function') {
+                callback();
+            }
         });
 
         if (!socket.recovered) {
@@ -71,7 +76,7 @@ if (cluster.isPrimary) {
                     }
                 )
             } catch (e) {
-                // something went wrong
+                console.error('Error al recuperar mensajes:', e);
             }
         }
     });
